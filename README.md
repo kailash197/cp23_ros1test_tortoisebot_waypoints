@@ -36,13 +36,8 @@ roslaunch tortoisebot_gazebo tortoisebot_playground.launch
 ### 1. Using launch files 
 
 #### 1. Passing Conditions
-Execute the test file and verify if all the tests are passing properly with passing conditions
-The `waypoints_test.test` launch file must have `test_pass` parameter set to `True`.
-```xml
-  <!-- Test parameter -->
-  <param name="test_pass" value="true"/>
-```
 
+Execute the test file and verify if all the tests are passing properly with passing conditions.
 [Terminal 3]
 ```bash
 source /opt/ros/noetic/setup.bash
@@ -55,37 +50,109 @@ Expected output:
 ```bash
 [ROSTEST]-----------------------------------------------------------------------
 
+[tortoisebot_waypoints.rosunit-tortoisebot_as_integration_test/test_goal_position][passed]
+
 SUMMARY
  * RESULT: SUCCESS
- * TESTS: 2
+ * TESTS: 1
  * ERRORS: 0
  * FAILURES: 0
 
 ```
 
 #### 2. Failing Conditions
-Make the necessary changes in the program to test for failing conditions and execute the test file and verify if all the tests are failing properly with failing conditions.
+
+[Terminal 3]
+```bash
+source /opt/ros/noetic/setup.bash
+source ~/simulation_ws/devel/setup.bash
+rostest tortoisebot_waypoints waypoints_test.test test_pass:=false --reuse-master
+
+```
 
 Expected output:
 ```bash
+[Testcase: testtortoisebot_as_integration_test] ... ok
+
 [ROSTEST]-----------------------------------------------------------------------
+
+[tortoisebot_waypoints.rosunit-tortoisebot_as_integration_test/test_goal_position][FAILURE]
+False is not true
+--------------------------------------------------------------------------------
 
 SUMMARY
  * RESULT: FAIL
  * TESTS: 1
- * ERRORS: 1
- * FAILURES: 0
+ * ERRORS: 0
+ * FAILURES: 1
 
 ```
 
-### 2. Launch the Waypoints Action Server for ROS1
+### 2. Manually start all nodes (without using test launch files)
+
+#### 1. Launch the Waypoints Action Server for ROS1
 [Terminal 2]
 ```bash
 source /opt/ros/noetic/setup.bash
 source ~/simulation_ws/devel/setup.bash
 rosrun tortoisebot_waypoints tortoisebot_action_server.py
 
-```    
+```
+Expected Output:
+```bash
+[INFO] [1748015167.206618, 3772.189000]: Action server started
+
+```
+
+#### 2. Run the passing test
+[Terminal 3]
+```bash
+source /opt/ros/noetic/setup.bash
+source ~/simulation_ws/devel/setup.bash
+
+rosparam set /test_pass true
+rosrun tortoisebot_waypoints tortoisebot_as_integration_test.py
+
+```
+Expected output:
+```bash
+[Testcase: test_goal_position] ... ok
+-------------------------------------------------------------
+SUMMARY:
+ * RESULT: SUCCESS
+ * TESTS: 1
+ * ERRORS: 0 []
+ * FAILURES: 0 []
+
+ ```
+
+#### 3.Run the failing test
+
+Restart waypoint action server in step 1.
+
+[Terminal 3]
+```bash
+source /opt/ros/noetic/setup.bash
+source ~/simulation_ws/devel/setup.bash
+
+rosparam set /test_pass false
+rosrun tortoisebot_waypoints tortoisebot_as_integration_test.py
+
+```
+
+Expected Output:
+```bash
+[Testcase: test_goal_position] ... FAILURE!
+FAILURE: False is not true
+-------------------------------------------------------------
+SUMMARY:
+ * RESULT: FAIL
+ * TESTS: 1
+ * ERRORS: 0 []
+ * FAILURES: 1 [test_goal_position]
+
+ ```
+
 
 
 
