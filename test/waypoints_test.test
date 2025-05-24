@@ -5,9 +5,6 @@
   <!-- Set a ROS parameter using the argument -->
   <param name="test_pass" value="$(arg test_pass)"/>
 
-  <!-- Nodes -->
-  <node pkg="tortoisebot_waypoints" type="tortoisebot_action_server.py" name="tortoisebot_as_node" />
-
   <!-- Integration Test Node -->
   <test test-name="tortoisebot_as_integration_test"
         pkg="tortoisebot_waypoints" 

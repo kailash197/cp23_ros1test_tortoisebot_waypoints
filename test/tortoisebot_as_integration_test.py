@@ -28,37 +28,70 @@ class TestActionServer(unittest.TestCase):
 
         # Tolerance for position and yaw checks
         self.pos_tolerance = 0.1
-        self.yaw_tolerance = math.pi / 18  # 10 degrees
+        self.yaw_tolerance = math.pi / 12  # 15 degrees
 
-        self.current_orientation = Quaternion()
-        self.current_position = Point()
-        self.init_yaw = 0
-        self.final_yaw = 0
+        self.current_orientation = None
+        self.current_position = None
+        self.init_yaw = None
+        self.final_yaw = None
 
         # Goals
         self.test_pass = rospy.get_param('test_pass', True)
         self.test_pass_goal = Point(x=0.0, y=0.25, z=0.0)
-        self.test_fail_goal = Point(x=2.0, y=0.0, z=0.0)
-        self.goal = WaypointActionGoal()
+        self.test_pass_final_yaw = math.pi / 2.0
 
-        # Reset the robot position to before the test begins
-        self.robot_reset_request()
+        self.test_fail_goal = Point(x=0.0, y=-1.0, z=0.0)
+        self.test_fail_final_yaw = -math.pi/2.0
+        self.goal = WaypointActionGoal()
+        self.expected_yaw = None
+
+        # Send goal to action server
+        self.action_server_request()
+
 
     def odom_callback(self, msg):
         self.current_position = msg.pose.pose.position
         self.current_orientation = msg.pose.pose.orientation
     
-    def euler_to_quaternion(self, msg):
-        orientation_list = [msg.x, msg.y, msg.z, msg.w]
-        (roll, pitch, yaw) = euler_from_quaternion (orientation_list)
+    def current_yaw_angle(self):
+        """Convert the stored current orientation quaternion to Euler angles and return yaw"""
+        if self.current_orientation is None:
+            rospy.logwarn("No orientation data available!")
+            return 0.0
+
+        orientation_list = [
+            self.current_orientation.x,
+            self.current_orientation.y,
+            self.current_orientation.z,
+            self.current_orientation.w
+        ]
+        (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
         return yaw
     
     def action_server_request(self):
+        # reset robot position to home
+        self.robot_reset_request()
+
+        # Wait until we receive the first odometry message
+        while not self.current_orientation:
+            rospy.sleep(0.5)
+
+        self.init_yaw = self.current_yaw_angle()
         if(self.test_pass):
             self.goal.position = self.test_pass_goal
+            self.expected_yaw = self.test_pass_final_yaw
         else:
             self.goal.position = self.test_fail_goal
+            self.expected_yaw = self.test_fail_final_yaw
         self.as_client.send_goal(self.goal)
+
+        # Wait for result with timeout
+        self.success_result = self.as_client.wait_for_result(rospy.Duration(10))
+
+        if not self.success_result:
+            self.as_client.cancel_goal()
+            self.stop_robot()
+            rospy.logwarn("Goal was cancelled intentionally for test_fail case.")
 
     def robot_reset_request(self):
         rospy.wait_for_service('/gazebo/reset_world')
@@ -72,57 +105,24 @@ class TestActionServer(unittest.TestCase):
         self.cmd_vel_pub.publish(msg)
 
     def test_goal_position(self):
-        # Send goal to action server
-        self.action_server_request()
-    
-        # Wait for result with timeout
-        self.success_result = self.as_client.wait_for_result(rospy.Duration(10))
-
-        if not self.success_result:
-            self.as_client.cancel_goal()            
-            self.stop_robot()
-            rospy.logwarn("Goal was cancelled intentionally for test_fail case.")
-        
         # Check if goal was reached
         self.assertTrue(self.success_result)
-        
+
         # Check position (with tolerance)
         rospy.loginfo("Goal position: %s" % str(self.goal.position))
         rospy.loginfo("Current position: %s" % str(self.current_position))
         self.assertAlmostEqual(self.goal.position.x, self.current_position.x, delta=self.pos_tolerance)
         self.assertAlmostEqual(self.goal.position.y, self.current_position.y, delta=self.pos_tolerance)
         
-    # def test_yaw_alignment(self):
-    #     rospy.loginfo("Current Orientation: %s" % str(self.current_orientation))
-    #     time.sleep(2)
-    #     #rospy.wait_for_message("/odom", Odometry, timeout=2)
-    #     self.final_yaw = self.euler_to_quaternion(self.current_orientation)
-    #     rospy.loginfo("Final Yaw:  %s" % str(self.final_yaw))
+    def test_yaw_alignment(self):
+        # Check if goal was reached
+        self.assertTrue(self.success_result)
 
-    #     yaw_diff = self.init_yaw - self.final_yaw
-    #     rospy.loginfo("Yaw Diff:  %s" % str(yaw_diff ))
-    #     self.assertTrue((1.3 <= yaw_diff <= 2.1), "Integration error. Rotation was not between the expected values.")
-
-    #     # Set initial position
-    #     self.publish_odometry(0, 0, 0)
+        self.final_yaw = self.current_yaw_angle()
+        rospy.loginfo("Final Yaw:  %s" % str(self.final_yaw))
         
-    #     # Send goal
-    #     goal = WaypointActionGoal()
-    #     goal.position = Point(1.0, 1.0, 0.0)
-    #     self.client.send_goal(goal)
-        
-    #     # Wait for result with timeout
-    #     self.client.wait_for_result(rospy.Duration(20))
-        
-    #     # Check if goal was reached
-    #     self.assertTrue(self.client.get_result().success)
-        
-    #     # Calculate desired yaw (should be π/4 for (1,1) goal)
-    #     desired_yaw = math.atan2(goal.position.y, goal.position.x)
-        
-    #     # Check yaw alignment (with tolerance)
-    #     # Note: In a real test, you'd get the actual yaw from odometry
-    #     self.assertAlmostEqual(desired_yaw, math.pi/4, delta=self.yaw_tolerance)
+        # Check yaw alignment (with tolerance)
+        self.assertAlmostEqual(self.final_yaw, self.expected_yaw, delta=self.yaw_tolerance)
 
 if __name__ == '__main__':
     rostest.rosrun(PKG, NAME, TestActionServer)
