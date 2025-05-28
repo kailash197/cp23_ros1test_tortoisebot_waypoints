@@ -7,7 +7,8 @@
 ```bash
 cd ~/simulation_ws/src
 git clone https://github.com/kailash197/cp23_ros1test_tortoisebot_waypoints.git
-git checkout master
+mv cp23_ros1test_tortoisebot_waypoints tortoisebot_waypoints
+cd tortoisebot_waypoints
 
 ```
 ### 2. Use catkin make to build the project
@@ -24,7 +25,7 @@ cd ~/simulation_ws && catkin_make --pkg tortoisebot_waypoints && source devel/se
 [Terminal 1]
 ```bash
 source /opt/ros/noetic/setup.bash
-source ~/simulation_ws/devel/setup.bash
+cd ~/simulation_ws && catkin_make && source devel/setup.bash
 roslaunch tortoisebot_gazebo tortoisebot_playground.launch
 
 ```
@@ -35,7 +36,7 @@ roslaunch tortoisebot_gazebo tortoisebot_playground.launch
 [Terminal 2]
 ```bash
 source /opt/ros/noetic/setup.bash
-cd ~/simulation_ws && catkin_make && source devel/setup.bash
+cd ~/simulation_ws && catkin_make --pkg tortoisebot_waypoints && source devel/setup.bash
 rosrun tortoisebot_waypoints tortoisebot_action_server.py
 
 ```
@@ -46,7 +47,7 @@ Execute the test file and verify if all the tests are passing properly with pass
 [Terminal 3]
 ```bash
 source /opt/ros/noetic/setup.bash
-cd ~/simulation_ws && catkin_make && source devel/setup.bash
+cd ~/simulation_ws && catkin_make --pkg tortoisebot_waypoints && source devel/setup.bash
 rostest tortoisebot_waypoints waypoints_test.test --reuse-master
 
 ```
@@ -72,7 +73,7 @@ The code provides the failing conditions which can be selected by passing ROS pa
 [Terminal 3]
 ```bash
 source /opt/ros/noetic/setup.bash
-source ~/simulation_ws/devel/setup.bash
+cd ~/simulation_ws && catkin_make --pkg tortoisebot_waypoints && source devel/setup.bash
 rostest tortoisebot_waypoints waypoints_test.test test_pass:=false --reuse-master
 
 ```
